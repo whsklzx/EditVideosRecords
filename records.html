@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>按月查询记录</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>按月查询记录</h1>
+        <p class="subtle">选择月份，查看所有已记录的视频剪辑。</p>
+      </header>
+
+      <section class="card">
+        <h2>查询</h2>
+        <div class="recordsControls">
+          <div class="field" style="min-width: 220px;">
+            <label for="monthInput">月份</label>
+            <input id="monthInput" name="month" type="month" required />
+          </div>
+          <div style="display: flex; gap: 10px; align-items: end;">
+            <button type="button" id="refreshBtn" class="primary">刷新</button>
+            <a class="ghostLink" href="index.html">返回仪表盘</a>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="stat">
+            <div class="label">记录总数</div>
+            <div class="value" id="monthTotal">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">已完成</div>
+            <div class="value" id="monthCompleted">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">已完成获得的金币</div>
+            <div class="value" id="monthCoins">-</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardHeaderRow">
+          <h2>记录列表</h2>
+          <div class="hint" id="monthHint" style="margin: 0;"></div>
+        </div>
+        <div id="recordsList" class="datesList" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <footer class="footer">保存在 IndexedDB（与仪表盘使用同一数据库）。</footer>
+
+    <script src="db.js"></script>
+    <script src="records.js"></script>
+  </body>
+</html>
+
