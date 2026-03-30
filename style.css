@@ -122,6 +122,10 @@ select {
   outline: none;
 }
 
+select {
+  background: #000;
+}
+
 input::placeholder {
   color: rgba(231, 238, 252, 0.55);
 }

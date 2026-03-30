@@ -19,6 +19,7 @@
     coinsInput: el("coinsInput"),
     completedInput: el("completedInput"),
     resetBtn: el("resetBtn"),
+    reuseBtn: el("reuseBtn"),
     showAllToggle: el("showAllToggle"),
   };
 
@@ -87,9 +88,6 @@
    * @property {number} createdAt epoch ms
    */
 
-  /** @returns {Promise<VideoEntry[]>} */
-  const loadEntries = async () => window.VideoDB.getAllEntries();
-
   /** @param {VideoEntry} entry */
   const addEntry = async (entry) => window.VideoDB.addEntry(entry);
 
@@ -104,24 +102,6 @@
     const currentMonthKey = monthKeyFromISODate(todayISO);
     const { start, end } = weekRange(now);
     return { todayISO, currentMonthKey, weekStart: start, weekEnd: end };
-  };
-
-  const computeDashboard = (entries) => {
-    const { currentMonthKey, weekStart, weekEnd } = getTodayKeys();
-
-    const monthEntries = entries.filter((e) => monthKeyFromISODate(e.date) === currentMonthKey);
-    const monthTotal = monthEntries.length;
-    const monthCompleted = monthEntries.filter((e) => e.completed).length;
-
-    const weekCoins = entries
-      .filter((e) => {
-        if (!e.completed) return false;
-        const dt = parseISODateToLocalMidnight(e.date);
-        return dt >= weekStart && dt <= weekEnd;
-      })
-      .reduce((sum, e) => sum + (Number.isFinite(e.coins) ? e.coins : 0), 0);
-
-    return { currentMonthKey, monthTotal, monthCompleted, weekCoins };
   };
 
   const groupByDateKey = (entries) => {
@@ -164,7 +144,7 @@
         <div class="dateGroup" data-date="${dateKey}">
           <div class="dateHeader">
             <div class="dateTitle">${formatHumanDate(dateKey)}</div>
-            <div class="dateMeta">${completed}/${total} completed (${completedPct}%)</div>
+            <div class="dateMeta">${completed}/${total} 已完成（${completedPct}%）</div>
           </div>
           <div class="dateRows">
       `);
@@ -204,14 +184,23 @@
       .replaceAll("'", "&#039;");
 
   const renderAll = async () => {
-    const entries = await loadEntries();
-    const dash = computeDashboard(entries);
+    const { currentMonthKey, weekStart, weekEnd } = getTodayKeys();
 
-    dom.monthText.textContent = formatMonthText(dash.currentMonthKey);
-    dom.monthCompletion.textContent = `本月已完成 ${dash.monthCompleted}/${dash.monthTotal}`;
-    dom.weekCoins.textContent = String(dash.weekCoins);
+    // 本月统计只拉取本月数据，周度酬劳用区间查询（仅已完成）。
+    const monthEntries = await window.VideoDB.getEntriesByMonth(currentMonthKey);
+    const weekCoins = await window.VideoDB.getWeekCompletedCoins(weekStart, weekEnd);
 
-    renderDates(entries);
+    const monthTotal = monthEntries.length;
+    const monthCompleted = monthEntries.filter((e) => e.completed).length;
+
+    // 列表展示：如果勾选“显示所有日期”，就拉取全库；否则只展示本月。
+    const listEntries = state.showAllDates ? await window.VideoDB.getAllEntries() : monthEntries;
+
+    dom.monthText.textContent = formatMonthText(currentMonthKey);
+    dom.monthCompletion.textContent = `本月已完成 ${monthCompleted}/${monthTotal}`;
+    dom.weekCoins.textContent = String(weekCoins);
+
+    renderDates(listEntries);
   };
 
   const setDefaultFormValues = () => {
@@ -287,13 +276,35 @@
     });
 
     dom.resetBtn.addEventListener("click", async () => {
-      const ok = confirm("确认清空此浏览器中的所有已保存记录？");
+      const ok = confirm("确认清空所有已保存记录？（此操作会删除数据库中的全部条目）");
       if (!ok) return;
       try {
         await clearAllEntries();
         await renderAll();
       } catch (err) {
         alert(err?.message ? `清空失败：${err.message}` : "清空失败");
+      }
+    });
+
+    dom.reuseBtn.addEventListener("click", async () => {
+      try {
+        const entries = await window.VideoDB.getAllEntries();
+        const last = entries?.[0];
+        if (!last) {
+          alert("暂无可复用的记录。");
+          return;
+        }
+
+        dom.dateInput.value = String(last.date || "");
+        dom.nameInput.value = String(last.videoName || "");
+        dom.levelInput.value = /^L[1-8]$/.test(String(last.accountLevel || "")) ? String(last.accountLevel) : "";
+        dom.coinsInput.value = String(Number.isFinite(Number(last.coins)) ? last.coins : 0);
+        dom.completedInput.value = Boolean(last.completed) ? "true" : "false";
+
+        dom.nameInput.focus();
+        dom.nameInput.select();
+      } catch (err) {
+        alert(err?.message ? `读取失败：${err.message}` : "读取失败");
       }
     });
   };
